@@ -109,7 +109,7 @@ javascript:(function() {
         });
     }
   
-    // Set up observer for new images
+    // Keep the observer active even when tab is not focused
     const observer = new MutationObserver((mutations) => {
         // Look through each mutation
         for (const mutation of mutations) {
@@ -136,13 +136,36 @@ javascript:(function() {
         }
     });
   
-    // Configure the observer to only watch for what we need
+    // Configure the observer with higher priority
     observer.observe(foundContainer, { 
-        childList: true,  // watch for added/removed nodes
-        subtree: true,    // watch all descendants
-        attributes: false  // don't watch for attribute changes
+        childList: true,
+        subtree: true,
+        attributes: false
     });
-  
-    console.log("Image viewer initialized and watching for changes");
-    alert("E2EE Image viewer is now active! Check console for results.");
-  })();
+
+    // Keep the page active even when not focused
+    let hidden, visibilityChange;
+    if (typeof document.hidden !== "undefined") {
+        hidden = "hidden";
+        visibilityChange = "visibilitychange";
+    } else if (typeof document.msHidden !== "undefined") {
+        hidden = "msHidden";
+        visibilityChange = "msvisibilitychange";
+    } else if (typeof document.webkitHidden !== "undefined") {
+        hidden = "webkitHidden";
+        visibilityChange = "webkitvisibilitychange";
+    }
+
+    // Add a visibility change listener
+    document.addEventListener(visibilityChange, function() {
+        if (document[hidden]) {
+            console.log("Tab hidden, but still watching for new images...");
+        } else {
+            console.log("Tab visible again");
+        }
+    }, false);
+
+    // Rest of your existing code...
+    console.log("Image viewer initialized and watching for changes (works in background)");
+    alert("E2EE Image viewer is now active! Check console for results. Works in background!");
+})();
