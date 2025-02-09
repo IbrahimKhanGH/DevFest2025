@@ -37,7 +37,9 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col items-center justify-center py-12 px-4">
       <div className="max-w-4xl text-center">
-        <div className="mb-8 text-6xl">🥗</div>
+        <div className="mb-8">
+          <img src="/tuah-icon.svg" alt="Tuah" className="h-24 w-24 mx-auto animate-float" />
+        </div>
         <h1 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-500 mb-6 animate-fade-in">
           NutriSnap AI
         </h1>

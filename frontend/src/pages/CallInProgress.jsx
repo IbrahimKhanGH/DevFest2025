@@ -52,7 +52,9 @@ function CallInProgress() {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center">
       <div className="text-center">
-        <div className="text-6xl mb-4">📞</div>
+        <div className="mb-4">
+          <img src="/tuah-icon.svg" alt="Tuah" className="h-16 w-16 mx-auto animate-pulse" />
+        </div>
         <h1 className="text-4xl font-bold mb-4">Call in Progress</h1>
         <p className="text-xl text-gray-400">Please wait while we analyze your call...</p>
         <div className="mt-8">

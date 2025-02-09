@@ -133,7 +133,7 @@ function FoodLogPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <span className="text-2xl">🥗</span>
+              <img src="/tuah-icon.svg" alt="Tuah" className="h-8 w-8" />
               <h1 className="ml-2 text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 text-transparent bg-clip-text">
                 NutriSnap AI
               </h1>
