@@ -94,11 +94,17 @@ function FoodLogPage() {
           </div>
         )}
 
-        {response && (
+        {response ? (
           <div className="bg-white rounded-2xl shadow-xl p-8">
+
+            <img 
+              className="w-full h-auto p-2 rounded-3xl object-cover col-span-1"
+              src="{imageUrl}"
+              alt="Food"
+            />    
             {/* Macronutrients */}
             <div className="mb-8">
-              <h3 className="text-2xl font-semibold text-gray-800 mb-4">Macronutrients</h3>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Macronutrients</h3>
               <div className="grid gap-4">
                 <NutrientBar label="Protein" value={response.macronutrients?.protein} />
                 <NutrientBar label="Carbs" value={response.macronutrients?.carbs} />
@@ -108,17 +114,17 @@ function FoodLogPage() {
 
             {/* Micronutrients */}
             <div className="mb-8">
-              <h3 className="text-2xl font-semibold text-gray-800 mb-4">Micronutrients</h3>
-              <div className="grid gap-2">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Micronutrients</h3>
+              <div className="grid gap-2 grid-cols-2">
                 <div>
                   <span className="font-medium">Vitamins:</span>
-                  <span className="ml-2 text-gray-600">
+                  <span className="ml-2 text-gray-600 text-sm">
                     {response.micronutrients?.vitamins.join(", ")}
                   </span>
                 </div>
                 <div>
                   <span className="font-medium">Minerals:</span>
-                  <span className="ml-2 text-gray-600">
+                  <span className="ml-2 text-gray-600 text-sm">
                     {response.micronutrients?.minerals.join(", ")}
                   </span>
                 </div>
@@ -127,11 +133,53 @@ function FoodLogPage() {
 
             {/* Analysis */}
             <div>
-              <h3 className="text-2xl font-semibold text-gray-800 mb-4">Analysis</h3>
-              <p className="text-gray-600 leading-relaxed">{response.explanation}</p>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Analysis</h3>
+              <p className="text-gray-600 text-sm leading-relaxed">{response.explanation}</p>
             </div>
           </div>
-        )}
+        ):
+        
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+
+            <img 
+              className="w-full pb-4 h-auto p-2 rounded-3xl object-cover col-span-1"
+              src="https://static.vecteezy.com/system/resources/previews/004/141/669/non_2x/no-photo-or-blank-image-icon-loading-images-or-missing-image-mark-image-not-available-or-image-coming-soon-sign-simple-nature-silhouette-in-frame-isolated-illustration-vector.jpg"
+              alt="Food"
+            />    
+            {/* Macronutrients */}
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Macronutrients</h3>
+              <div className="grid gap-4">
+                <NutrientBar label="Protein" value= "0" />
+                <NutrientBar label="Carbs" value="0" />
+                <NutrientBar label="Fats" value="0" />
+              </div>
+            </div>
+
+            {/* Micronutrients */}
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Micronutrients</h3>
+              <div className="grid gap-2 grid-cols-2">
+                <div>
+                  <span className="font-medium">Vitamins:</span>
+                  <span className="ml-2 text-gray-600 text-sm">
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Minerals:</span>
+                  <span className="ml-2 text-gray-600 text-sm">
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Analysis */}
+            <div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Analysis</h3>
+              <p className="text-gray-600 text-sm leading-relaxed"></p>
+            </div>
+          </div>
+        }
       </div>
     </div>
   );
@@ -142,9 +190,9 @@ function NutrientBar({ label, value }) {
   
   return (
     <div>
-      <div className="flex justify-between mb-1">
-        <span className="text-gray-700">{label}</span>
-        <span className="text-gray-600">{value}g</span>
+      <div className="flex justify-between ">
+        <span className="text-gray-700 text-sm">{label}</span>
+        <span className="text-gray-600 text-sm">{value}g</span>
       </div>
       <div className="h-2 bg-gray-200 rounded-full">
         <div

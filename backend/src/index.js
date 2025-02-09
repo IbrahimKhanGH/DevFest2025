@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
+import { url } from 'inspector';
 
 // Configure dotenv first
 dotenv.config();
@@ -216,6 +217,7 @@ app.post("/api/nutritional-analysis", async (req, res) => {
     // Define the schema
     const schema = {
       properties: {
+        imageUrl: { type: "string", title: "Image URL" },
         macronutrients: {
           type: "object",
           properties: {
