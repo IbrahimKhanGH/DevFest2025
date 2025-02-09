@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useUser } from "../context/UserContext";
 import { Link } from 'react-router-dom';
+import MinimalAudioPlayer from "../components/minimalAudioPlayer";
 
 
 const Recipes = () => {
@@ -154,9 +155,36 @@ const Recipes = () => {
 
             {recipeData && (
             <div className="mt-12 bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-8 text-left animate-fade-in hover:bg-gray-800/80 transition-all">
+                <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-500">
-                {recipeData.recipe_name}
+                    {recipeData.recipe_name}
                 </h2>
+                <button
+                    onClick={generateTTS}
+                    disabled={ttsLoading}
+                    className="relative w-14 h-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center text-white hover:scale-105 transition-all shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                    {ttsLoading ? (
+                    <div className="absolute inset-0">
+                        <div className="w-full h-full rounded-full border-4 border-white border-t-transparent animate-spin" />
+                    </div>
+                    ) : (
+                    <svg 
+                        viewBox="0 0 24 24" 
+                        className="w-6 h-6" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                    >
+                        <path d="M12 6L8 10H4v4h4l4 4V6z" />
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                    )}
+                </button>
+                </div>
 
                 <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
@@ -172,40 +200,19 @@ const Recipes = () => {
                 </div>
 
                 <div className="flex flex-col">
-                    <h3 className="text-xl font-semibold text-green-400 mb-4">Audio Instructions</h3>
-                    <div className="flex-1 flex flex-col items-start justify-center space-y-4">
-                    <button
-                        onClick={generateTTS}
-                        disabled={ttsLoading}
-                        className="inline-flex items-center px-6 py-3 text-lg font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg hover:scale-105 transition-all shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                    >
-                        {ttsLoading ? (
-                        <>
-                            <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                            Generating Audio...
-                        </>
-                        ) : (
-                        <>
-                            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.414a5 5 0 001.414 1.414m0 0l.707.707M6.343 6.343a5 5 0 00-1.414 1.414m0 0L4.222 8.464" />
-                            </svg>
-                            Play Instructions
-                        </>
-                        )}
-                    </button>
-
-                    {audioSrc && (
-                        <div className="w-full bg-gray-700/50 rounded-lg p-4 backdrop-blur-sm border border-gray-600">
+                    {/* {audioSrc && (
+                    <div className="w-full bg-gray-700/50 rounded-lg p-4 backdrop-blur-sm border border-gray-600">
                         <audio controls className="w-full">
-                            <source src={audioSrc} type="audio/mp3" />
-                            Your browser does not support the audio element.
+                        <source src={audioSrc} type="audio/mp3" />
+                        Your browser does not support the audio element.
                         </audio>
-                        </div>
-                    )}
                     </div>
+                    )} */}
+                    {audioSrc && (
+                        <div className="mt-4">
+                            <MinimalAudioPlayer audioSrc={audioSrc} />
+                        </div>
+                        )}
                 </div>
 
                 <div className="md:col-span-2">
