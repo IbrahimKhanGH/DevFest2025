@@ -1,0 +1,64 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import Groq from "groq-sdk";
+
+dotenv.config();
+const app = express();
+const PORT = 5000;
+
+// ✅ Enable CORS for Frontend (http://localhost:5173)
+app.use(cors({
+  origin: "http://localhost:5173", // Allow frontend requests
+  methods: ["GET", "POST", "OPTIONS"], // Allow necessary methods
+  allowedHeaders: ["Content-Type", "Authorization"], // Allow required headers
+  credentials: true  // Enable cookies if needed
+}));
+
+// ✅ Handle Preflight Requests
+app.options("/api/analyze-image", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(204);
+});
+
+app.use(express.json());
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+app.post("/api/analyze-image", async (req, res) => {
+  try {
+    const { base64Image } = req.body;
+
+    if (!base64Image) {
+      return res.status(400).json({ error: "No image provided" });
+    }
+
+    const chatResponse = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "user",
+          content: "Analyze this image and describe its content.",
+          attachments: [
+            {
+              type: "image",
+              data: base64Image,
+            },
+          ],
+        },
+      ],
+      model: "llama-3.3-70b-versatile",
+    });
+
+    res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); // ✅ Explicitly allow frontend
+    res.json({ result: chatResponse.choices[0]?.message?.content || "No response." });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Error processing image" });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});
