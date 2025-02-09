@@ -53,18 +53,6 @@ app.options("/api/nutritional-analysis", (req, res) => {
   res.sendStatus(204);
 });
 
-// Function to shorten URL using TinyURL's API
-async function shortenUrl(longUrl) {
-  try {
-    const response = await fetch(`http://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
-    const shortUrl = await response.text();
-    return shortUrl;
-  } catch (error) {
-    console.error("Error shortening URL:", error);
-    return longUrl; // Return original URL if shortening fails
-  }
-}
-
 // Helper function to format call analysis
 function formatRetellCallAnalysis(call) {
   const customData = call?.call_analysis?.custom_analysis_data;
@@ -218,10 +206,10 @@ app.post("/api/nutritional-analysis", async (req, res) => {
   try {
     const { imageUrl } = req.body;
 
-    console.log("🟢 Received Groq AI Image URL:", imageUrl);
+    console.log("🟢 Received image URL for analysis:", imageUrl);
 
     if (!imageUrl) {
-      console.error("❌ No image URL provided for Groq AI!");
+      console.error("❌ No image URL provided!");
       return res.status(400).json({ success: false, error: "No image URL provided" });
     }
 
@@ -277,7 +265,7 @@ app.post("/api/nutritional-analysis", async (req, res) => {
       response_format: { type: "json_object" }
     });
 
-    console.log("🟢 Groq AI Response Received:", chatResponse);
+    console.log("🟢 Groq AI Response:", chatResponse.choices[0].message.content);
 
     const parsedData = JSON.parse(chatResponse.choices[0].message.content);
 
@@ -288,7 +276,7 @@ app.post("/api/nutritional-analysis", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Groq AI Server Error:", error);
+    console.error("❌ Groq AI Error:", error);
     res.status(500).json({ success: false, error: error.message || "Error processing image" });
   }
 });
