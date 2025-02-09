@@ -1,24 +1,37 @@
 import { useNavigate } from 'react-router-dom';
-import { useUser } from '../context/UserContext';
 import { useEffect } from 'react';
+import { useUser } from '../context/UserContext';
 
 function HomePage() {
   const navigate = useNavigate();
   const { setUserData } = useUser();
   
   useEffect(() => {
-    // Set up SSE connection to listen for webhook events
-    const eventSource = new EventSource('http://localhost:3103/webhook');
+    // Listen for webhook events
+    const webhookStream = new EventSource('http://localhost:3103/api/webhook-stream');
     
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.event === 'call_analyzed' && data.customAnalysis) {
-        setUserData(data.customAnalysis);
-        navigate('/food-log');
+    webhookStream.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("📨 Received webhook data:", data);
+        
+        if (data.type === 'call_started') {
+          // When call starts, show CallInProgress screen
+          navigate('/call-in-progress');
+        } else if (data.type === 'user_data') {
+          // When call analysis is complete, set user data and go to food log
+          console.log("👤 Setting user data:", data.data);
+          setUserData(data.data);
+          navigate('/food-log');
+        }
+      } catch (error) {
+        console.error("❌ Error processing webhook SSE:", error);
       }
     };
 
-    return () => eventSource.close();
+    return () => {
+      webhookStream.close();
+    };
   }, [navigate, setUserData]);
 
   return (
@@ -34,22 +47,8 @@ function HomePage() {
         
         <button 
           onClick={() => {
-            // Simulate a call for testing
-            const mockCallData = {
-              event: 'call_analyzed',
-              customAnalysis: {
-                user_name: "Ibrahim",
-                user_age: 21,
-                user_weight: 170,
-                user_height: "5'10",
-                user_gender: "male",
-                health_goal: "Gaining muscle",
-                dietary_preference: "none",
-                additional_notes: "No additional remarks from the user."
-              }
-            };
-            setUserData(mockCallData.customAnalysis);
-            navigate('/food-log');
+            // This would trigger your actual call initiation
+            console.log("📞 Initiating call...");
           }}
           className="inline-flex items-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg hover:scale-105 transition-all shadow-lg hover:shadow-emerald-500/20 animate-pulse"
         >

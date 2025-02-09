@@ -1,18 +1,17 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import FoodLogPage from './pages/FoodLogPage';
-import { UserProvider } from './context/UserContext';
+import CallInProgress from './pages/CallInProgress';
 
 function App() {
   return (
-    <UserProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/food-log" element={<FoodLogPage />} />
-        </Routes>
-      </Router>
-    </UserProvider>
+    <Router>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/call-in-progress" element={<CallInProgress />} />
+        <Route path="/food-log" element={<FoodLogPage />} />
+      </Routes>
+    </Router>
   );
 }
 

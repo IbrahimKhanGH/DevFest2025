@@ -11,6 +11,7 @@ import path from 'path';
 import { url } from 'inspector';
 import { EventEmitter } from 'events';
 import crypto from 'crypto';
+import OpenAI from 'openai';
 
 // Configure dotenv first
 dotenv.config();
@@ -32,6 +33,11 @@ if (!process.env.GROQ_API_KEY) {
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const imageEventEmitter = new EventEmitter();
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 // Increase payload size limit for large images
 app.use(express.json({ limit: '50mb' }));
@@ -161,99 +167,128 @@ async function saveBase64Image(base64Data) {
 // Nutritional Analysis endpoint
 app.post("/api/nutritional-analysis", async (req, res) => {
   try {
-    console.log("📥 Received request to /api/nutritional-analysis");
-    
+    console.log("📥 Received request for analysis");
     let { imageUrl } = req.body;
     
-    // If it's a base64 image, save it and get an HTTP URL
-    if (imageUrl && imageUrl.startsWith('data:image')) {
-      console.log("💾 Converting base64 to file...");
-      imageUrl = await saveBase64Image(imageUrl);
-      console.log("🔗 Created HTTP URL:", imageUrl);
-    }
-
     if (!imageUrl) {
-      console.error("❌ No image URL provided!");
-      return res.status(400).json({ success: false, error: "No image URL provided" });
+      throw new Error("No image URL provided");
     }
 
-    console.log("🤖 Starting Groq AI analysis...");
-    const chatResponse = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: `
-You are an advanced AI nutritionist specializing in visual food and beverage analysis. Your task is to:
+    // Vision Analysis
+    let visionDescription;
+    try {
+      const visionResponse = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Analyze this image in detail and identify:
+1. All food and beverage items present
+2. Any visible brands, labels, or packaging (e.g., "Red Bull 8.4oz can", "Doritos Family Size")
+3. Portion sizes and container sizes
+4. Preparation methods
+5. Any visible nutritional information or ingredients lists
+6. State of the food/drink (e.g., "partially consumed", "unopened", "freshly prepared")
 
-1. FIRST CAREFULLY OBSERVE the image and identify ALL items present
-   - Look for multiple food items or beverages
-   - Note portion sizes, ingredients, and preparation methods
-   - Consider mixed dishes, sides, and beverages
+Please be specific about brands and sizes when visible, but don't make assumptions if not clearly visible.`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageUrl,
+                  detail: "high"
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500
+      });
+      visionDescription = visionResponse.choices[0].message.content;
+      console.log("👁️ Vision Analysis:", visionDescription);
+    } catch (visionError) {
+      console.error("Vision API Error:", visionError);
+      throw new Error("Failed to analyze image: " + visionError.message);
+    }
 
-2. ANALYZE based on what you actually see:
-   - For foods: Identify main ingredients, cooking methods, and portions
-   - For beverages: Identify type, brand (if visible), and serving size
-   - For packaged items: Use visible nutritional information if available
-
-3. Provide analysis in this exact JSON format:
-{
-  "primaryIngredients": "Detailed list of ALL items identified",
-  "portionSize": "Estimated serving size for each item",
-  "macronutrients": {
-    "protein": number (in grams),
-    "carbs": number (in grams),
-    "fats": number (in grams),
-    "calories": number
-  },
-  "micronutrients": {
-    "vitamins": ["list of primary vitamins present"],
-    "minerals": ["list of primary minerals present"]
-  },
-  "nutrientDensity": "Analysis of nutritional value",
-  "explanation": "Detailed breakdown of nutritional components and health implications"
-}
-
-IMPORTANT:
-- Never assume ingredients not visible in the image
-- Be specific about what you actually see
-- If uncertain about exact values, provide reasonable estimates based on visible portions
-- Consider cultural and contextual clues in the image
-`
-        },
-        {
-          role: "user",
-          content: `Analyze this image and provide a detailed nutritional breakdown: ${imageUrl}
-
-Please identify ALL items visible in the image and provide accurate nutritional information based on what you can actually see.`
-        }
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.7,
-      stream: false,
-      response_format: { type: "json_object" }
-    });
+    // Nutritional Analysis
+    try {
+      const chatResponse = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: `You are a precise nutritional analyst. When analyzing foods and beverages:
+1. If brand information is provided, use that for exact nutritional data
+2. For packaged items with sizes, calculate nutrition based on the specific portion
+3. For prepared foods, estimate based on visible ingredients and portions
+4. Consider whether items are partially consumed when calculating nutrition
+5. If exact brands aren't visible, provide ranges or estimates based on similar products`
+          },
+          {
+            role: "user",
+            content: `Based on this detailed vision analysis: "${visionDescription}", 
+            provide nutritional information in JSON format. Include brand-specific details when available.
+            
+            Schema:
+            {
+              "primaryIngredients": string (include brand names if identified),
+              "portionSize": string (be specific about container/serving sizes),
+              "macronutrients": {
+                "protein": number,
+                "carbs": number,
+                "fats": number,
+                "calories": number
+              },
+              "micronutrients": {
+                "vitamins": [string],
+                "minerals": [string]
+              },
+              "nutrientDensity": string,
+              "explanation": string (include any brand-specific insights)
+            }`
+          }
+        ],
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.5,
+        stream: false,
+        response_format: { type: "json_object" }
+      });
+      const nutritionalAnalysis = JSON.parse(chatResponse.choices[0].message.content);
       
-    console.log("🟢 Groq AI Response:", chatResponse.choices[0].message.content);
+      // Validate the response format
+      if (!nutritionalAnalysis.macronutrients || !nutritionalAnalysis.micronutrients) {
+        throw new Error("Invalid nutritional analysis format");
+      }
 
-    const parsedData = JSON.parse(chatResponse.choices[0].message.content);
+      // Emit and respond
+      imageEventEmitter.emit('newImage', {
+        imageUrl,
+        visionDescription,
+        nutritionalAnalysis,
+        timestamp: new Date().toISOString()
+      });
 
-    console.log("✨ Analysis complete, emitting event");
-    imageEventEmitter.emit('newImage', {
-      imageUrl: imageUrl,
-      nutritionalAnalysis: parsedData,
-      timestamp: new Date().toISOString()
-    });
+      res.json({
+        success: true,
+        visionDescription,
+        nutritionalAnalysis
+      });
 
-    console.log("🎉 Sending response to client");
-    res.json({
-      success: true,
-      message: "Image processed successfully",
-      nutritionalAnalysis: parsedData
-    });
+    } catch (groqError) {
+      console.error("Groq API Error:", groqError);
+      throw new Error("Failed to analyze nutrition: " + groqError.message);
+    }
 
   } catch (error) {
-    console.error("💥 Error in nutritional analysis:", error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error("💥 Error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      details: error.stack 
+    });
   }
 });
 
@@ -290,50 +325,83 @@ app.post('/api/inbound-variables', async (req, res) => {
     }
 });
 
-// Existing webhook endpoint
+// Add this new SSE endpoint for webhook data
+app.get('/api/webhook-stream', (req, res) => {
+  console.log("🌟 New webhook SSE connection attempt");
+  
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*'
+  });
+
+  // Send initial connection confirmation
+  res.write(`data: ${JSON.stringify({ status: 'connected' })}\n\n`);
+  console.log("✅ Sent initial webhook SSE connection message");
+
+  // Handler for webhook events
+  const webhookHandler = (data) => {
+    console.log("📤 Sending webhook data through SSE:", data);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  // Add the handler to your event emitter
+  imageEventEmitter.on('webhook_update', webhookHandler);
+
+  req.on('close', () => {
+    console.log("❌ Webhook SSE Connection closed");
+    imageEventEmitter.off('webhook_update', webhookHandler);
+  });
+});
+
+// Update your webhook endpoint
 app.post("/webhook", async (req, res) => {
-    try {
-        const { event, call } = req.body;
-        console.log('\n📩 Webhook event received:', event);
+  try {
+    const { event, call } = req.body;
+    console.log('\n📩 Webhook event received:', event);
+    
+    switch (event) {
+      case "call_started":
+        console.log("📞 Call started:", call.call_id);
+        // Emit call_started event
+        imageEventEmitter.emit('webhook_update', {
+          type: 'call_started',
+          data: {
+            callId: call.call_id
+          }
+        });
+        break;
         
-        // Format the analysis first
-        const analysis = formatRetellCallAnalysis(call);
-        
-        switch (event) {
-            case "call_started":
-                console.log("📞 Call started:", call.call_id);
-                console.log("📱 Phone number:", call.from_number);
-                break;
-                
-            case "call_ended":
-                console.log("🔚 Call ended:", call.call_id);
-                console.log("📊 Call analysis:", JSON.stringify(analysis, null, 2));
-                break;
-                
-            case "call_analyzed":
-                console.log("🔍 Call analyzed:", call.call_id);
-                console.log("📝 Transcript:", call.transcript);
-                if (call.call_analysis?.custom_analysis_data) {
-                    console.log("🎯 Custom Analysis:", JSON.stringify(call.call_analysis.custom_analysis_data, null, 2));
-                    // Send the event to connected clients
-                    if (req.app.locals.sendEvent) {
-                        req.app.locals.sendEvent({
-                            event: 'call_analyzed',
-                            customAnalysis: call.call_analysis.custom_analysis_data
-                        });
-                    }
-                }
-                break;
-                
-            default:
-                console.log("❓ Unknown event:", event);
+      case "call_analyzed":
+        console.log("🔍 Call analyzed:", call.call_id);
+        if (call.call_analysis?.custom_analysis_data) {
+          // Emit user_data event with analysis
+          imageEventEmitter.emit('webhook_update', {
+            type: 'user_data',
+            data: {
+              name: call.call_analysis?.custom_analysis_data?.user_name || "User",
+              age: call.call_analysis?.custom_analysis_data?.user_age,
+              weight: call.call_analysis?.custom_analysis_data?.user_weight,
+              height: call.call_analysis?.custom_analysis_data?.user_height,
+              gender: call.call_analysis?.custom_analysis_data?.user_gender,
+              dietaryPreference: call.call_analysis?.custom_analysis_data?.dietary_preference,
+              healthGoal: call.call_analysis?.custom_analysis_data?.health_goal,
+              additionalNotes: call.call_analysis?.custom_analysis_data?.additional_notes
+            }
+          });
         }
+        break;
         
-        res.status(200).json({ success: true });
-    } catch (error) {
-        console.error("❌ Error processing webhook:", error);
-        res.status(500).json({ error: error.message });
+      default:
+        console.log("❓ Unknown event:", event);
     }
+    
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("❌ Error processing webhook:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Serve static files from the public directory

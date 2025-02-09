@@ -127,205 +127,140 @@ function FoodLogPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {/* Header with Glassmorphism */}
+      <header className="bg-gray-800/30 backdrop-blur-md border-b border-gray-700/50 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <Link to="/" className="flex items-center space-x-2">
+            <div className="flex items-center">
               <span className="text-2xl">🥗</span>
-              <span className="text-xl font-bold text-green-400">NutriSnap AI</span>
-            </Link>
-            <nav className="flex items-center space-x-4">
-              <Link to="/" className="text-gray-300 hover:text-green-400 transition-colors">
-                Home
-              </Link>
-              <a href="#" className="text-gray-300 hover:text-green-400 transition-colors">
-                Help
-              </a>
-            </nav>
+              <h1 className="ml-2 text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 text-transparent bg-clip-text">
+                NutriSnap AI
+              </h1>
+            </div>
+            {userData && (
+              <div className="flex items-center space-x-4">
+                <div className="text-sm">
+                  <span className="text-gray-400">Welcome,</span>
+                  <span className="ml-1 text-green-400 font-semibold">{userData.name}</span>
+                </div>
+                <div className="h-8 w-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center">
+                  {userData.name.charAt(0).toUpperCase()}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Overview */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* User Profile Card */}
         {userData && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <StatCard 
-              title="Current Weight"
-              value={`${userData.user_weight} lbs`}
-              trend="+2 lbs this month"
-              icon="⚖️"
-              className="bg-gray-800 border-gray-700 text-gray-200"
-            />
-            <StatCard 
-              title="Height"
-              value={userData.user_height}
-              icon="📏"
-              className="bg-gray-800 border-gray-700 text-gray-200"
-            />
-            <StatCard 
-              title="Goal"
-              value={userData.health_goal}
-              icon="🎯"
-              className="bg-gray-800 border-gray-700 text-gray-200"
-            />
-          </div>
-        )}
-
-        {/* Macro Goals Card */}
-        {userData && (
-          <div className="bg-gray-800 rounded-2xl shadow-lg border border-gray-700 p-6 mb-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-gray-200">Today's Nutrition</h3>
-              <span className="text-sm text-green-400 font-medium cursor-pointer hover:text-green-300">
-                View Details →
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <MacroChart 
-                icon="🥩"
-                label="Protein" 
-                value={consumedNutrients.protein} 
-                max={calculateProtein(userData.user_weight)}
-                color="from-red-500 to-red-600"
-                textColor="text-red-400"
-              />
-              <MacroChart 
-                icon="🍚"
-                label="Carbs" 
-                value={consumedNutrients.carbs}
-                max={calculateCarbs(userData.user_weight, userData.health_goal)}
-                color="from-blue-500 to-blue-600"
-                textColor="text-blue-400"
-              />
-              <MacroChart 
-                icon="🥑"
-                label="Fats" 
-                value={consumedNutrients.fats}
-                max={calculateFats(userData.user_weight)}
-                color="from-yellow-500 to-yellow-600"
-                textColor="text-yellow-400"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Food Analysis Section */}
-        <div className="bg-gray-800 rounded-2xl shadow-lg border border-gray-700 p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-200">Food Analysis</h3>
-            <button 
-              onClick={() => setImageUrl("https://example.com/sample-food.jpg")}
-              className="text-sm text-green-400 font-medium hover:text-green-300"
-            >
-              Try Sample Image →
-            </button>
-          </div>
-
-          {/* Analysis History */}
-          <div className="space-y-6">
-            {analysisHistory.map((item, index) => (
-              <div key={index} className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-                <div className="text-sm text-gray-400 mb-4">
-                  Analyzed at {item.timestamp}
+          <div className="mb-8 bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-green-400">Your Health Profile</h2>
+                <span className="px-4 py-1 rounded-full bg-green-500/10 text-green-400 text-sm">
+                  Active Goal: {userData.healthGoal}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="bg-gray-700/50 rounded-xl p-4 backdrop-blur-sm border border-gray-600/50">
+                  <div className="text-gray-400 text-sm mb-1">Age</div>
+                  <div className="text-xl font-bold text-white">{userData.age}</div>
                 </div>
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Image Preview */}
-                  <div className="bg-gray-700 rounded-xl p-4 flex items-center justify-center h-[400px]">
-                    <img 
-                      src={item.imageUrl} 
-                      alt="Food" 
-                      className="max-w-full max-h-full object-contain rounded-lg"
-                    />
-                  </div>
-
-                  {/* Nutritional Info */}
-                  <div className="space-y-4">
-                    <div className="bg-gray-700 rounded-xl p-4">
-                      <h4 className="font-semibold text-green-400 mb-2">
-                        {item.analysis.primaryIngredients}
-                      </h4>
-                      <p className="text-gray-300 text-sm mb-4">
-                        {item.analysis.explanation}
-                      </p>
-                      
-                      {/* Macronutrients */}
-                      <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div className="text-center">
-                          <div className="text-red-400 font-semibold">
-                            Protein
-                          </div>
-                          <div className="text-gray-200">
-                            {item.analysis.macronutrients?.protein || 0}g
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-blue-400 font-semibold">
-                            Carbs
-                          </div>
-                          <div className="text-gray-200">
-                            {item.analysis.macronutrients?.carbs || 0}g
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-yellow-400 font-semibold">
-                            Fats
-                          </div>
-                          <div className="text-gray-200">
-                            {item.analysis.macronutrients?.fats || 0}g
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Calories */}
-                      <div className="text-center mb-4">
-                        <div className="text-purple-400 font-semibold">
-                          Calories
-                        </div>
-                        <div className="text-gray-200 text-2xl font-bold">
-                          {item.analysis.macronutrients?.calories || 0}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Micronutrients */}
-                    <div className="bg-gray-700 rounded-xl p-4">
-                      <h4 className="font-semibold text-green-400 mb-2">Micronutrients</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <h5 className="text-gray-400 text-sm mb-1">Vitamins</h5>
-                          <ul className="text-gray-200 text-sm">
-                            {item.analysis.micronutrients?.vitamins?.map((vitamin, i) => (
-                              <li key={i}>{vitamin}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <h5 className="text-gray-400 text-sm mb-1">Minerals</h5>
-                          <ul className="text-gray-200 text-sm">
-                            {item.analysis.micronutrients?.minerals?.map((mineral, i) => (
-                              <li key={i}>{mineral}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-700 rounded-xl p-4">
-                      <h4 className="font-semibold text-green-400 mb-2">Nutrient Density</h4>
-                      <div className="inline-block px-3 py-1 rounded-full bg-green-500/20 text-green-400">
-                        {item.analysis.nutrientDensity}
-                      </div>
-                    </div>
-                  </div>
+                <div className="bg-gray-700/50 rounded-xl p-4 backdrop-blur-sm border border-gray-600/50">
+                  <div className="text-gray-400 text-sm mb-1">Height</div>
+                  <div className="text-xl font-bold text-white">{userData.height}</div>
+                </div>
+                <div className="bg-gray-700/50 rounded-xl p-4 backdrop-blur-sm border border-gray-600/50">
+                  <div className="text-gray-400 text-sm mb-1">Weight</div>
+                  <div className="text-xl font-bold text-white">{userData.weight || 'N/A'}</div>
+                </div>
+                <div className="bg-gray-700/50 rounded-xl p-4 backdrop-blur-sm border border-gray-600/50">
+                  <div className="text-gray-400 text-sm mb-1">Diet Type</div>
+                  <div className="text-xl font-bold text-white">{userData.dietaryPreference || 'Standard'}</div>
                 </div>
               </div>
-            ))}
+            </div>
+          </div>
+        )}
+
+        {/* Nutrition Tracking Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          {/* Daily Progress */}
+          <div className="lg:col-span-2 bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
+            <h3 className="text-xl font-bold text-green-400 mb-4">Today's Nutrition</h3>
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="bg-gray-700/50 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-white mb-1">{consumedNutrients.protein}g</div>
+                <div className="text-sm text-gray-400">Protein</div>
+              </div>
+              <div className="bg-gray-700/50 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-white mb-1">{consumedNutrients.carbs}g</div>
+                <div className="text-sm text-gray-400">Carbs</div>
+              </div>
+              <div className="bg-gray-700/50 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-white mb-1">{consumedNutrients.fats}g</div>
+                <div className="text-sm text-gray-400">Fats</div>
+              </div>
+            </div>
+            <MacroChart data={consumedNutrients} />
+          </div>
+
+          {/* Quick Add Section */}
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
+            <h3 className="text-xl font-bold text-green-400 mb-4">Quick Add</h3>
+            <div className="space-y-4">
+              <button 
+                onClick={() => {/* Add image capture logic */}}
+                className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl font-semibold hover:opacity-90 transition-opacity flex items-center justify-center space-x-2"
+              >
+                <span>📸</span>
+                <span>Capture Food</span>
+              </button>
+              <button 
+                className="w-full py-3 px-4 bg-gray-700/50 rounded-xl font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
+              >
+                <span>📝</span>
+                <span>Manual Entry</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Recent Activity */}
+        {analysisHistory.length > 0 && (
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
+            <h3 className="text-xl font-bold text-green-400 mb-4">Recent Activity</h3>
+            <div className="space-y-4">
+              {analysisHistory.map((item, index) => (
+                <div key={index} className="bg-gray-700/50 rounded-xl p-4 flex items-center space-x-4">
+                  <div className="w-16 h-16 rounded-lg overflow-hidden">
+                    <img src={item.imageUrl} alt="Food" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-semibold text-white">Food Analysis</div>
+                        <div className="text-sm text-gray-400">{item.timestamp}</div>
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {item.analysis.macronutrients.calories} kcal
+                      </div>
+                    </div>
+                    <div className="mt-2 flex space-x-4 text-sm">
+                      <span className="text-green-400">P: {item.analysis.macronutrients.protein}g</span>
+                      <span className="text-blue-400">C: {item.analysis.macronutrients.carbs}g</span>
+                      <span className="text-yellow-400">F: {item.analysis.macronutrients.fats}g</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
