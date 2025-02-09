@@ -1,9 +1,21 @@
 import { useState } from 'react';
+import { useUser } from '../context/UserContext';
+import Sidebar from '../components/dashboard/Sidebar';
+import StatCard from '../components/dashboard/StatCard';
+import MacroChart from '../components/dashboard/MacroChart';
+import FoodAnalysis from '../components/foodLog/FoodAnalysis';
+import { calculateProtein, calculateCarbs, calculateFats } from '../utils/macroCalculations';
 
 function FoodLogPage() {
+  const { userData } = useUser();
   const [imageUrl, setImageUrl] = useState("");
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [consumedNutrients, setConsumedNutrients] = useState({
+    protein: 0,
+    carbs: 0,
+    fats: 0
+  });
 
   const handleInputChange = (event) => {
     setImageUrl(event.target.value);
@@ -36,6 +48,11 @@ function FoodLogPage() {
       if (data.success) {
         console.log("🔹 Groq AI Analysis:", data.nutritionalAnalysis);
         setResponse(data.nutritionalAnalysis);
+        setConsumedNutrients(prev => ({
+          protein: prev.protein + (data.nutritionalAnalysis.macronutrients?.protein || 0),
+          carbs: prev.carbs + (data.nutritionalAnalysis.macronutrients?.carbs || 0),
+          fats: prev.fats + (data.nutritionalAnalysis.macronutrients?.fats || 0)
+        }));
       } else {
         console.error("❌ Analysis failed:", data.error);
       }
@@ -47,158 +64,75 @@ function FoodLogPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        <h2 className="text-3xl font-bold text-gray-800 mb-8">Your Food Analysis</h2>
-        
-        {/* Image URL Input Form */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 mb-2">
-                Food Image URL
-              </label>
-              <input
-                type="text"
-                id="imageUrl"
-                value={imageUrl}
-                onChange={handleInputChange}
-                placeholder="Enter image URL or try our sample image"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    <div className="min-h-screen bg-gray-50">
+      <Sidebar userData={userData} />
+
+      <div className="ml-72 p-8">
+        <div className="max-w-5xl mx-auto">
+          {/* Stats Overview */}
+          {userData && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <StatCard 
+                title="Current Weight"
+                value={`${userData.user_weight} lbs`}
+                trend="+2 lbs this month"
+                icon="⚖️"
+              />
+              <StatCard 
+                title="Height"
+                value={userData.user_height}
+                icon="📏"
+              />
+              <StatCard 
+                title="Goal"
+                value={userData.health_goal}
+                icon="🎯"
               />
             </div>
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:opacity-90 transition-opacity"
-              >
-                Analyze Image
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setImageUrl("https://images.immediate.co.uk/production/volatile/sites/30/2019/08/full-english-breakfast-d9acf82.jpg");
-                }}
-                className="px-6 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-              >
-                Try Sample Image
-              </button>
+          )}
+
+          {/* Macro Goals Card */}
+          {userData && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold text-gray-800">Daily Macro Goals</h3>
+                <span className="text-sm text-purple-600 font-medium">View Details →</span>
+              </div>
+              <div className="grid grid-cols-3 gap-6">
+                <MacroChart 
+                  icon="🥩"
+                  label="Protein" 
+                  value={consumedNutrients.protein} 
+                  max={calculateProtein(userData.user_weight)}
+                  color="protein"
+                />
+                <MacroChart 
+                  icon="🍚"
+                  label="Carbs" 
+                  value={consumedNutrients.carbs}
+                  max={calculateCarbs(userData.user_weight, userData.health_goal)}
+                  color="carbs"
+                />
+                <MacroChart 
+                  icon="🥑"
+                  label="Fats" 
+                  value={consumedNutrients.fats}
+                  max={calculateFats(userData.user_weight)}
+                  color="fats"
+                />
+              </div>
             </div>
-          </form>
+          )}
+
+          {/* Food Analysis Section */}
+          <FoodAnalysis 
+            imageUrl={imageUrl}
+            setImageUrl={setImageUrl}
+            response={response}
+            loading={loading}
+            onAnalyze={handleAnalyzeImage}
+          />
         </div>
-
-        {loading && (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Analyzing your food...</p>
-          </div>
-        )}
-
-        {response ? (
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-
-            <img 
-              className="w-full h-auto p-2 rounded-3xl object-cover col-span-1"
-              src="{imageUrl}"
-              alt="Food"
-            />    
-            {/* Macronutrients */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Macronutrients</h3>
-              <div className="grid gap-4">
-                <NutrientBar label="Protein" value={response.macronutrients?.protein} />
-                <NutrientBar label="Carbs" value={response.macronutrients?.carbs} />
-                <NutrientBar label="Fats" value={response.macronutrients?.fats} />
-              </div>
-            </div>
-
-            {/* Micronutrients */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Micronutrients</h3>
-              <div className="grid gap-2 grid-cols-2">
-                <div>
-                  <span className="font-medium">Vitamins:</span>
-                  <span className="ml-2 text-gray-600 text-sm">
-                    {response.micronutrients?.vitamins.join(", ")}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium">Minerals:</span>
-                  <span className="ml-2 text-gray-600 text-sm">
-                    {response.micronutrients?.minerals.join(", ")}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Analysis */}
-            <div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Analysis</h3>
-              <p className="text-gray-600 text-sm leading-relaxed">{response.explanation}</p>
-            </div>
-          </div>
-        ):
-        
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-
-            <img 
-              className="w-full pb-4 h-auto p-2 rounded-3xl object-cover col-span-1"
-              src="https://static.vecteezy.com/system/resources/previews/004/141/669/non_2x/no-photo-or-blank-image-icon-loading-images-or-missing-image-mark-image-not-available-or-image-coming-soon-sign-simple-nature-silhouette-in-frame-isolated-illustration-vector.jpg"
-              alt="Food"
-            />    
-            {/* Macronutrients */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Macronutrients</h3>
-              <div className="grid gap-4">
-                <NutrientBar label="Protein" value= "0" />
-                <NutrientBar label="Carbs" value="0" />
-                <NutrientBar label="Fats" value="0" />
-              </div>
-            </div>
-
-            {/* Micronutrients */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Micronutrients</h3>
-              <div className="grid gap-2 grid-cols-2">
-                <div>
-                  <span className="font-medium">Vitamins:</span>
-                  <span className="ml-2 text-gray-600 text-sm">
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium">Minerals:</span>
-                  <span className="ml-2 text-gray-600 text-sm">
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Analysis */}
-            <div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Analysis</h3>
-              <p className="text-gray-600 text-sm leading-relaxed"></p>
-            </div>
-          </div>
-        }
-      </div>
-    </div>
-  );
-}
-
-function NutrientBar({ label, value }) {
-  const percentage = Math.min((value / 100) * 100, 100);
-  
-  return (
-    <div>
-      <div className="flex justify-between ">
-        <span className="text-gray-700 text-sm">{label}</span>
-        <span className="text-gray-600 text-sm">{value}g</span>
-      </div>
-      <div className="h-2 bg-gray-200 rounded-full">
-        <div
-          className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
-          style={{ width: `${percentage}%` }}
-        />
       </div>
     </div>
   );

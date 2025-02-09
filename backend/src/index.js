@@ -54,6 +54,36 @@ app.options("/api/nutritional-analysis", (req, res) => {
   res.sendStatus(204);
 });
 
+// Define the schema
+const schema = {
+  properties: {
+    macronutrients: {
+      type: "object",
+      properties: {
+        protein: { type: "number", title: "Protein (g)" },
+        fats: { type: "number", title: "Fats (g)" },
+        carbs: { type: "number", title: "Carbohydrates (g)" }
+      },
+      required: ["protein", "fats", "carbs"],
+      title: "Macronutrients"
+    },
+    micronutrients: {
+      type: "object",
+      properties: {
+        vitamins: { type: "array", items: { type: "string" }, title: "Vitamins" },
+        minerals: { type: "array", items: { type: "string" }, title: "Minerals" }
+      },
+      required: ["vitamins", "minerals"],
+      title: "Micronutrients"
+    },
+    is_nutrient_dense: { type: "boolean", title: "Is Nutrient Dense?" },
+    explanation: { type: "string", title: "Nutrient Density Explanation" }
+  },
+  required: ["macronutrients", "micronutrients", "is_nutrient_dense", "explanation"],
+  title: "Nutritional Analysis",
+  type: "object"
+};
+
 // Helper function to format call analysis
 function formatRetellCallAnalysis(call) {
   const customData = call?.call_analysis?.custom_analysis_data;
@@ -162,12 +192,36 @@ app.post('/api/inbound-variables', async (req, res) => {
     }
 });
 
+// Add this near your other endpoints
+app.get('/webhook-stream', (req, res) => {
+    console.log("🔌 Client connected to SSE stream");
+    
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    const sendEvent = (data) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    // Store the sendEvent function
+    req.app.locals.sendEvent = sendEvent;
+
+    // Clean up on client disconnect
+    req.on('close', () => {
+        console.log("🔌 Client disconnected from SSE stream");
+    });
+});
+
 // Existing webhook endpoint
 app.post("/webhook", async (req, res) => {
-    const { event, call } = req.body;
-    
     try {
+        const { event, call } = req.body;
         console.log('\n📩 Webhook event received:', event);
+        
+        // Format the analysis first
+        const analysis = formatRetellCallAnalysis(call);
         
         switch (event) {
             case "call_started":
@@ -177,7 +231,6 @@ app.post("/webhook", async (req, res) => {
                 
             case "call_ended":
                 console.log("🔚 Call ended:", call.call_id);
-                const analysis = formatRetellCallAnalysis(call);
                 console.log("📊 Call analysis:", JSON.stringify(analysis, null, 2));
                 break;
                 
@@ -186,6 +239,13 @@ app.post("/webhook", async (req, res) => {
                 console.log("📝 Transcript:", call.transcript);
                 if (call.call_analysis?.custom_analysis_data) {
                     console.log("🎯 Custom Analysis:", JSON.stringify(call.call_analysis.custom_analysis_data, null, 2));
+                    // Send the event to connected clients
+                    if (req.app.locals.sendEvent) {
+                        req.app.locals.sendEvent({
+                            event: 'call_analyzed',
+                            customAnalysis: call.call_analysis.custom_analysis_data
+                        });
+                    }
                 }
                 break;
                 
@@ -193,7 +253,7 @@ app.post("/webhook", async (req, res) => {
                 console.log("❓ Unknown event:", event);
         }
         
-        res.status(204).send();
+        res.status(200).json({ success: true });
     } catch (error) {
         console.error("❌ Error processing webhook:", error);
         res.status(500).json({ error: error.message });
@@ -214,59 +274,45 @@ app.post("/api/nutritional-analysis", async (req, res) => {
       return res.status(400).json({ success: false, error: "No image URL provided" });
     }
 
-    // Define the schema
-    const schema = {
-      properties: {
-        imageUrl: { type: "string", title: "Image URL" },
-        macronutrients: {
-          type: "object",
-          properties: {
-            protein: { type: "number", title: "Protein (g)" },
-            fats: { type: "number", title: "Fats (g)" },
-            carbs: { type: "number", title: "Carbohydrates (g)" }
-          },
-          required: ["protein", "fats", "carbs"],
-          title: "Macronutrients"
-        },
-        micronutrients: {
-          type: "object",
-          properties: {
-            vitamins: { type: "array", items: { type: "string" }, title: "Vitamins" },
-            minerals: { type: "array", items: { type: "string" }, title: "Minerals" }
-          },
-          required: ["vitamins", "minerals"],
-          title: "Micronutrients"
-        },
-        is_nutrient_dense: { type: "boolean", title: "Is Nutrient Dense?" },
-        explanation: { type: "string", title: "Nutrient Density Explanation" }
-      },
-      required: ["macronutrients", "micronutrients", "is_nutrient_dense", "explanation"],
-      title: "Nutritional Analysis",
-      type: "object"
-    };
-
-    // Pretty printing improves response accuracy
-    const jsonSchema = JSON.stringify(schema, null, 4);
-
-    console.log("🟢 Sending image URL to Groq AI for nutritional analysis...");
-
     const chatResponse = await groq.chat.completions.create({
       messages: [
         {
           role: "system",
-          content: `You are an AI nutritionist that analyzes food images and outputs structured nutritional data in JSON.\nThe JSON object must use this schema: ${jsonSchema}`
+          content: `
+You are an advanced AI nutritionist with deep expertise in image recognition and dietary analysis. 
+You will receive an image URL of a food item. 
+Your task is:
+1. Identify the primary ingredients from the image (e.g., "steak and eggs", "burger", "salad").
+2. Estimate portion sizes (e.g., grams or cups).
+3. Provide detailed macronutrient analysis (protein, carbohydrates, fats) with approximate calorie counts.
+4. Provide relevant micronutrient estimates (vitamins, minerals).
+5. Assess the overall nutrient density (e.g., "low," "moderate," or "high").
+6. Follow any additional fields specified in the JSON schema exactly.
+7. Output your result strictly as a JSON object matching the provided schema. 
+   Do not include any text outside the JSON structure.
+
+Schema to follow: 
+\`\`\`
+${JSON.stringify(schema, null, 4)}
+\`\`\`
+          `
         },
         {
           role: "user",
-          content: `Analyze the following food image for macronutrients, micronutrients, and nutrient density: ${imageUrl}`
+          content: `
+Analyze the following food image for macronutrients, micronutrients, and nutrient density: 
+${imageUrl}
+
+Please first identify what food items you see in the image, then provide a detailed nutritional analysis specific to those items.
+          `
         }
       ],
       model: "llama-3.3-70b-versatile",
-      temperature: 0,
+      temperature: 0.7, // Slightly increased for more varied responses
       stream: false,
       response_format: { type: "json_object" }
     });
-
+      
     console.log("🟢 Groq AI Response:", chatResponse.choices[0].message.content);
 
     const parsedData = JSON.parse(chatResponse.choices[0].message.content);
