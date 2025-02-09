@@ -183,36 +183,48 @@ app.post("/api/nutritional-analysis", async (req, res) => {
         {
           role: "system",
           content: `
-You are an advanced AI nutritionist with expertise in food and beverage analysis. 
-Analyze the image and provide your response in JSON format following this exact schema:
+You are an advanced AI nutritionist specializing in visual food and beverage analysis. Your task is to:
+
+1. FIRST CAREFULLY OBSERVE the image and identify ALL items present
+   - Look for multiple food items or beverages
+   - Note portion sizes, ingredients, and preparation methods
+   - Consider mixed dishes, sides, and beverages
+
+2. ANALYZE based on what you actually see:
+   - For foods: Identify main ingredients, cooking methods, and portions
+   - For beverages: Identify type, brand (if visible), and serving size
+   - For packaged items: Use visible nutritional information if available
+
+3. Provide analysis in this exact JSON format:
 {
-  "primaryIngredients": "string describing main items",
-  "portionSize": "string",
+  "primaryIngredients": "Detailed list of ALL items identified",
+  "portionSize": "Estimated serving size for each item",
   "macronutrients": {
-    "protein": number,
-    "carbs": number,
-    "fats": number,
+    "protein": number (in grams),
+    "carbs": number (in grams),
+    "fats": number (in grams),
     "calories": number
   },
   "micronutrients": {
-    "vitamins": ["string array"],
-    "minerals": ["string array"]
+    "vitamins": ["list of primary vitamins present"],
+    "minerals": ["list of primary minerals present"]
   },
-  "nutrientDensity": "string",
-  "explanation": "string"
+  "nutrientDensity": "Analysis of nutritional value",
+  "explanation": "Detailed breakdown of nutritional components and health implications"
 }
 
-For beverages, especially energy drinks:
-1. Identify the specific brand and type
-2. Note caffeine content, sugar/sweeteners, and other active ingredients
-3. Use standard serving sizes (Red Bull: 8.4oz)
-          `
+IMPORTANT:
+- Never assume ingredients not visible in the image
+- Be specific about what you actually see
+- If uncertain about exact values, provide reasonable estimates based on visible portions
+- Consider cultural and contextual clues in the image
+`
         },
         {
           role: "user",
-          content: `Analyze this image and respond in JSON format: ${imageUrl}
+          content: `Analyze this image and provide a detailed nutritional breakdown: ${imageUrl}
 
-Please identify if this is a food item or beverage, then provide detailed nutritional analysis in the specified JSON format.`
+Please identify ALL items visible in the image and provide accurate nutritional information based on what you can actually see.`
         }
       ],
       model: "llama-3.3-70b-versatile",
