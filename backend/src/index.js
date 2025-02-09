@@ -336,6 +336,128 @@ app.post("/webhook", async (req, res) => {
     }
 });
 
+app.post("/api/generate-recipe", async (req, res) => {
+  try {
+    console.log("📥 Received request for personalized recipe generation");
+
+    const { user_height, user_weight, dietary_preference, health_goal, additional_notes } = req.body;
+
+    if (!dietary_preference || !health_goal) {
+      return res.status(400).json({ error: "Missing dietary preference or health goal" });
+    }
+
+    console.log("👨‍🍳 Generating recipe for:", { user_height, user_weight, dietary_preference, health_goal, additional_notes });
+
+    const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_RECIPE_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: `You are a personalized AI chef that generates recipes tailored to users' dietary needs and health goals. 
+
+            Generate a **balanced, nutritious recipe** that helps the user achieve their health goals. Consider the user's:
+            - Height: ${user_height || "Unknown"} cm
+            - Weight: ${user_weight || "Unknown"} kg
+            - Dietary Preference: ${dietary_preference}
+            - Health Goal: ${health_goal}
+            - Additional Notes: ${additional_notes || "None"}
+
+            Ensure that the recipe is suitable for their dietary restrictions and assists in achieving their health goal.
+            
+            **Output the response as a JSON object using this schema:**
+            {
+              "recipe_name": "string",
+              "ingredients": [
+                { "name": "string", "quantity": "string", "quantity_unit": "string | null" }
+              ],
+              "directions": ["Step-by-step cooking instructions"]
+            }`
+          }
+        ],
+        temperature: 0.6,
+        stream: false,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const groqData = await groqResponse.json();
+    console.log("🟢 Groq API Response:", groqData);
+
+    if (!groqData.choices || !groqData.choices[0].message.content) {
+      throw new Error("Invalid response from Groq API");
+    }
+
+    const parsedData = JSON.parse(groqData.choices[0].message.content);
+
+    res.json({
+      success: true,
+      message: "Personalized recipe generated successfully",
+      recipe: parsedData
+    });
+
+  } catch (error) {
+    console.error("❌ Error generating recipe:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post("/api/tts-directions", async (req, res) => {
+  try {
+    console.log("📥 Received request to convert directions to TTS");
+
+    const { directions } = req.body;
+    if (!directions || directions.length === 0) {
+      return res.status(400).json({ error: "No directions provided" });
+    }
+
+    const textToConvert = directions.join(" "); // Convert array to a single string
+    console.log("🔊 Sending text to Memenome API:", textToConvert);
+
+    const ttsResponse = await fetch("https://api.memenome.ai/translations/with-tts", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "x-api-key": process.env.MEMENOME_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        voice: {
+          url: "https://res.cloudinary.com/dxwu6rssz/video/upload/v1739085639/Fetty_Wap_Falling_Off_Isolated_xmgdms.mp3"
+        },
+        message: {
+          type: "text",
+          text: textToConvert
+        }
+      })
+    });
+
+    const ttsData = await ttsResponse.json();
+    console.log("🎵 Memenome API Response:", ttsData);
+
+    if (!ttsData.audio_base64) {
+      console.error("❌ Memenome API Error:", ttsData);
+      throw new Error("Failed to generate TTS audio.");
+    }
+
+    res.json({
+      success: true,
+      message: "TTS generated successfully",
+      audio_base64: ttsData.audio_base64
+    });
+
+  } catch (error) {
+    console.error("❌ Error generating TTS:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
 // Serve static files from the public directory
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 

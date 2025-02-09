@@ -140,9 +140,9 @@ function FoodLogPage() {
               <Link to="/" className="text-gray-300 hover:text-green-400 transition-colors">
                 Home
               </Link>
-              <a href="#" className="text-gray-300 hover:text-green-400 transition-colors">
-                Help
-              </a>
+              <Link to="/recipes" className="text-gray-300 hover:text-green-400 transition-colors">
+                Recipes
+              </Link>
             </nav>
           </div>
         </div>
