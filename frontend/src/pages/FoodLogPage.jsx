@@ -143,24 +143,34 @@ function FoodLogPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      {/* Header with Glassmorphism */}
+      {/* Navigation Bar */}
       <header className="bg-gray-800/30 backdrop-blur-md border-b border-gray-700/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <img src="/tuah-icon.svg" alt="Tuah" className="h-8 w-8" />
-              <h1 className="ml-2 text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 text-transparent bg-clip-text">
-                TalkTuahNutritionist
-              </h1>
+              <Link to="/" className="flex items-center">
+                <img src="/tuah-icon.svg" alt="Tuah" className="h-8 w-8" />
+                <h1 className="ml-2 text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 text-transparent bg-clip-text">
+                  TalkTuahNutritionist
+                </h1>
+              </Link>
+              <nav className="flex items-center ml-8 space-x-4">
+                <Link to="/" className="text-gray-300 hover:text-green-400 transition-colors">
+                  Home
+                </Link>
+                <Link to="/recipes" className="text-gray-300 hover:text-green-400 transition-colors">
+                  Recipes
+                </Link>
+              </nav>
             </div>
             {userData && (
               <div className="flex items-center space-x-4">
                 <div className="text-sm">
                   <span className="text-gray-400">Welcome,</span>
-                  <span className="ml-1 text-green-400 font-semibold">{userData.name}</span>
+                  <span className="ml-1 text-green-400 font-semibold">{userData.name || 'User'}</span>
                 </div>
                 <div className="h-8 w-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center">
-                  {userData.name.charAt(0).toUpperCase()}
+                  {(userData.name || 'U').charAt(0).toUpperCase()}
                 </div>
               </div>
             )}

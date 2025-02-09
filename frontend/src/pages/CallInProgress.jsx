@@ -15,29 +15,22 @@ function CallInProgress() {
 
         if (data.type === 'image_data') {
           console.log("👤 Received user data:", data.data);
-          if (
-            data.data.health_goal &&
-            data.data.user_age &&
-            data.data.user_weight &&
-            data.data.user_height &&
-            data.data.user_name &&
-            data.data.user_gender
-          ) {
-            const userData = {
-              name: data.data.user_name,
-              age: data.data.user_age,
-              weight: data.data.user_weight,
-              height: data.data.user_height,
-              gender: data.data.user_gender,
-              dietaryPreference: data.data.dietary_preference || 'Not specified',
-              healthGoal: data.data.health_goal,
-              additionalNotes: data.data.additional_notes || ''
-            };
-            setUserData(userData);
-            navigate('/food-log');
-          } else {
-            console.warn("⚠️ Incomplete user data received:", data.data);
-          }
+          const userData = {
+            name: data.data.user_name,
+            age: data.data.user_age,
+            weight: data.data.user_weight,
+            height: data.data.user_height,
+            gender: data.data.user_gender,
+            dietaryPreference: data.data.dietary_preference || 'Not specified',
+            healthGoal: data.data.health_goal,
+            additionalNotes: data.data.additional_notes || ''
+          };
+          
+          console.log("✅ Mapped user data:", userData);
+          setUserData(userData);
+          navigate('/food-log');
+        } else {
+          console.warn("⚠️ Incomplete user data received:", data.data);
         }
       } catch (error) {
         console.error("❌ Error processing webhook SSE:", error);
