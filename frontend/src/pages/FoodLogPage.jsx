@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import StatCard from '../components/dashboard/StatCard';
-import MacroChart from '../components/dashboard/MacroChart';
-import { calculateProtein, calculateCarbs, calculateFats } from '../utils/macroCalculations';
 import { Link } from 'react-router-dom';
+import { calculateDailyCalories, calculateMacroTargets } from '../utils/nutritionCalculations';
 
 function FoodLogPage() {
   const { userData } = useUser();
@@ -36,30 +35,38 @@ function FoodLogPage() {
           console.log("🎁 Parsed SSE data:", data);
           
           if (data.imageUrl && data.nutritionalAnalysis) {
-            console.log("🖼️ Processing new image with analysis:", {
-              url: data.imageUrl,
-              analysis: data.nutritionalAnalysis
-            });
-            setImageUrl(data.imageUrl);
-            setResponse(data.nutritionalAnalysis);
+            // Add timestamp check to prevent duplicate processing
+            const lastProcessedTime = sessionStorage.getItem('lastProcessedImageTime');
+            const currentTime = new Date(data.timestamp).getTime();
             
-            // Add to history
-            setAnalysisHistory(prev => [{
-              imageUrl: data.imageUrl,
-              analysis: data.nutritionalAnalysis,
-              timestamp: new Date().toLocaleTimeString()
-            }, ...prev]);
-            
-            console.log("💪 Updating nutrients...");
-            setConsumedNutrients(prev => {
-              const newNutrients = {
-                protein: prev.protein + (data.nutritionalAnalysis.macronutrients?.protein || 0),
-                carbs: prev.carbs + (data.nutritionalAnalysis.macronutrients?.carbs || 0),
-                fats: prev.fats + (data.nutritionalAnalysis.macronutrients?.fats || 0)
-              };
-              console.log("📊 New nutrient values:", newNutrients);
-              return newNutrients;
-            });
+            if (!lastProcessedTime || currentTime - parseInt(lastProcessedTime) > 2000) {
+              console.log("🖼️ Processing new image with analysis");
+              setImageUrl(data.imageUrl);
+              setResponse(data.nutritionalAnalysis);
+              
+              // Add to history
+              setAnalysisHistory(prev => [{
+                imageUrl: data.imageUrl,
+                analysis: data.nutritionalAnalysis,
+                timestamp: new Date().toLocaleTimeString()
+              }, ...prev]);
+              
+              console.log("💪 Updating nutrients...");
+              setConsumedNutrients(prev => {
+                const newNutrients = {
+                  protein: prev.protein + (data.nutritionalAnalysis.macronutrients?.protein || 0),
+                  carbs: prev.carbs + (data.nutritionalAnalysis.macronutrients?.carbs || 0),
+                  fats: prev.fats + (data.nutritionalAnalysis.macronutrients?.fats || 0)
+                };
+                console.log("📊 New nutrient values:", newNutrients);
+                return newNutrients;
+              });
+              
+              // Update last processed time
+              sessionStorage.setItem('lastProcessedImageTime', currentTime.toString());
+            } else {
+              console.log("⏭️ Skipping duplicate image processing");
+            }
           }
         } catch (error) {
           console.error("❌ Error processing SSE message:", error);
@@ -126,6 +133,14 @@ function FoodLogPage() {
     }
   };
 
+  const calculateTotalCalories = (nutrients) => {
+    return Math.round(
+      (nutrients.protein * 4) + 
+      (nutrients.carbs * 4) + 
+      (nutrients.fats * 9)
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header with Glassmorphism */}
@@ -135,7 +150,7 @@ function FoodLogPage() {
             <div className="flex items-center">
               <img src="/tuah-icon.svg" alt="Tuah" className="h-8 w-8" />
               <h1 className="ml-2 text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 text-transparent bg-clip-text">
-                NutriSnap AI
+                TalkTuahNutritionist
               </h1>
             </div>
             {userData && (
@@ -189,78 +204,120 @@ function FoodLogPage() {
 
         {/* Nutrition Tracking Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          {/* Daily Progress */}
+          {/* Food Log Section - Now spans 2 columns */}
           <div className="lg:col-span-2 bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
-            <h3 className="text-xl font-bold text-green-400 mb-4">Today's Nutrition</h3>
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-gray-700/50 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-white mb-1">{consumedNutrients.protein}g</div>
-                <div className="text-sm text-gray-400">Protein</div>
-              </div>
-              <div className="bg-gray-700/50 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-white mb-1">{consumedNutrients.carbs}g</div>
-                <div className="text-sm text-gray-400">Carbs</div>
-              </div>
-              <div className="bg-gray-700/50 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-white mb-1">{consumedNutrients.fats}g</div>
-                <div className="text-sm text-gray-400">Fats</div>
-              </div>
-            </div>
-            <MacroChart data={consumedNutrients} />
-          </div>
-
-          {/* Quick Add Section */}
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
-            <h3 className="text-xl font-bold text-green-400 mb-4">Quick Add</h3>
-            <div className="space-y-4">
+            <h3 className="text-xl font-bold text-green-400 mb-4">Today's Food Log</h3>
+            
+            {/* Scan Food Button */}
+            <div className="text-center p-4 bg-gray-700/30 rounded-xl mb-6">
               <button 
                 onClick={() => {/* Add image capture logic */}}
                 className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl font-semibold hover:opacity-90 transition-opacity flex items-center justify-center space-x-2"
               >
                 <span>📸</span>
-                <span>Capture Food</span>
+                <span>Take Photo</span>
               </button>
-              <button 
-                className="w-full py-3 px-4 bg-gray-700/50 rounded-xl font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
-              >
-                <span>📝</span>
-                <span>Manual Entry</span>
-              </button>
+            </div>
+
+            {/* Recent Activity / Food Log */}
+            {analysisHistory.length > 0 ? (
+              <div className="space-y-4">
+                {analysisHistory.map((item, index) => (
+                  <div key={index} className="bg-gray-700/50 rounded-xl p-4 flex items-center space-x-4">
+                    <div className="w-16 h-16 rounded-lg overflow-hidden">
+                      <img src={item.imageUrl} alt="Food" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-semibold text-white">Food Analysis</div>
+                          <div className="text-sm text-gray-400">{item.timestamp}</div>
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {calculateTotalCalories(item.analysis.macronutrients)} calories
+                        </div>
+                      </div>
+                      <div className="mt-2 flex space-x-4 text-sm">
+                        <span className="text-green-400">P: {item.analysis.macronutrients.protein}g</span>
+                        <span className="text-blue-400">C: {item.analysis.macronutrients.carbs}g</span>
+                        <span className="text-yellow-400">F: {item.analysis.macronutrients.fats}g</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-400 py-8">
+                No meals logged yet today. Start by taking a photo of your food!
+              </div>
+            )}
+          </div>
+
+          {/* Macro Tracking Section - Now on the right */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Daily Calories Card */}
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
+              <h3 className="text-xl font-bold text-green-400 mb-4">Daily Target</h3>
+              <div className="text-3xl font-bold text-white text-center mb-4">
+                {calculateDailyCalories(userData.weight, userData.height, userData.age, userData.gender, userData.healthGoal).toLocaleString()} calories
+              </div>
+              
+              {/* Calorie Progress Bar */}
+              <div className="bg-gray-700/50 rounded-xl p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-400">Calories Consumed</span>
+                  <span className="text-sm text-gray-500">
+                    {calculateTotalCalories(consumedNutrients)} 
+                    / 
+                    {calculateDailyCalories(userData.weight, userData.height, userData.age, userData.gender, userData.healthGoal)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-600/50 rounded-full h-2">
+                  <div 
+                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-600"
+                    style={{
+                      width: `${Math.min(
+                        ((calculateTotalCalories(consumedNutrients) / calculateDailyCalories(userData.weight, userData.height, userData.age, userData.gender, userData.healthGoal)) * 100),
+                        100
+                      )}%`
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Macro Progress Card */}
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
+              <h3 className="text-xl font-bold text-green-400 mb-4">Macro Progress</h3>
+              <div className="space-y-4">
+                {Object.entries(calculateMacroTargets(
+                  calculateDailyCalories(userData.weight, userData.height, userData.age, userData.gender, userData.healthGoal),
+                  userData.healthGoal
+                )).map(([macro, target]) => (
+                  <div key={macro} className="bg-gray-700/50 rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-400 capitalize">{macro}</span>
+                      <span className="text-sm text-gray-500">
+                        {Math.round(Number(consumedNutrients[macro]) || 0)}g / {Math.round(target)}g
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-600/50 rounded-full h-2">
+                      <div 
+                        className={`h-full rounded-full ${
+                          macro === 'protein' ? 'bg-green-500' :
+                          macro === 'carbs' ? 'bg-blue-500' : 'bg-yellow-500'
+                        }`}
+                        style={{
+                          width: `${Math.min(((Number(consumedNutrients[macro]) || 0) / target) * 100, 100)}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Recent Activity */}
-        {analysisHistory.length > 0 && (
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
-            <h3 className="text-xl font-bold text-green-400 mb-4">Recent Activity</h3>
-            <div className="space-y-4">
-              {analysisHistory.map((item, index) => (
-                <div key={index} className="bg-gray-700/50 rounded-xl p-4 flex items-center space-x-4">
-                  <div className="w-16 h-16 rounded-lg overflow-hidden">
-                    <img src={item.imageUrl} alt="Food" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-semibold text-white">Food Analysis</div>
-                        <div className="text-sm text-gray-400">{item.timestamp}</div>
-                      </div>
-                      <div className="text-sm text-gray-400">
-                        {item.analysis.macronutrients.calories} kcal
-                      </div>
-                    </div>
-                    <div className="mt-2 flex space-x-4 text-sm">
-                      <span className="text-green-400">P: {item.analysis.macronutrients.protein}g</span>
-                      <span className="text-blue-400">C: {item.analysis.macronutrients.carbs}g</span>
-                      <span className="text-yellow-400">F: {item.analysis.macronutrients.fats}g</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

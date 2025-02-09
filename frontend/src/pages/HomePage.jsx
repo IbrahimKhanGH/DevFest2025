@@ -15,18 +15,30 @@ function HomePage() {
         const data = JSON.parse(event.data);
         console.log("📨 Received webhook data:", data);
         
-        if (data.type === 'call_started') {
-          // When call starts, show CallInProgress screen
-          navigate('/call-in-progress');
-        } else if (data.type === 'user_data') {
-          // When call analysis is complete, set user data and go to food log
-          console.log("👤 Setting user data:", data.data);
-          setUserData(data.data);
-          navigate('/food-log');
+        switch (data.type) {
+          case 'call_started':
+            // When call starts, show CallInProgress screen
+            console.log("📞 Call started, navigating to progress screen");
+            navigate('/call-in-progress');
+            break;
+          
+          case 'image_data':  // Changed from 'user_data' to 'image_data'
+            // When user data is received, set it and go to food log
+            console.log("👤 Setting user data:", data.data);
+            setUserData(data.data);
+            navigate('/food-log');
+            break;
+          
+          default:
+            console.log("⚠️ Unknown event type:", data.type);
         }
       } catch (error) {
         console.error("❌ Error processing webhook SSE:", error);
       }
+    };
+
+    webhookStream.onerror = (error) => {
+      console.error("❌ SSE Connection error:", error);
     };
 
     return () => {
@@ -41,7 +53,7 @@ function HomePage() {
           <img src="/tuah-icon.svg" alt="Tuah" className="h-24 w-24 mx-auto animate-float" />
         </div>
         <h1 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-500 mb-6 animate-fade-in">
-          NutriSnap AI
+          TalkTuahNutritionist
         </h1>
         <p className="text-xl text-gray-300 mb-12 animate-fade-in-delay">
           Snap. Analyze. Track Your Nutrition Journey.
@@ -57,7 +69,7 @@ function HomePage() {
           <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
           </svg>
-          Get Started
+          Call to get started
         </button>
 
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in-delay-2">

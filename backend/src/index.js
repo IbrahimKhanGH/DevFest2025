@@ -294,35 +294,29 @@ Please be specific about brands and sizes when visible, but don't make assumptio
 
 // Endpoint for inbound call dynamic variables
 app.post('/api/inbound-variables', async (req, res) => {
-    try {
-        const { llm_id, from_number, to_number } = req.body;
-        
-        console.log('📞 Inbound call request received:');
-        console.log('🤖 LLM ID:', llm_id);
-        console.log('📱 From:', from_number);
-        console.log('📞 To:', to_number);
+  try {
+    const { llm_id, from_number, to_number } = req.body;
+    
+    console.log('📞 Inbound call request received:');
+    console.log('🤖 LLM ID:', llm_id);
+    console.log('📱 From:', from_number);
+    console.log('📞 To:', to_number);
 
-        // Here you would typically lookup user info based on the phone number
-        // For now, we'll return sample data
-        const response = {
-            user_name: "John Doe",
-            user_email: "john@example.com",
-            // Add any other variables your bot needs
-            current_seat: "12A",
-            requested_seat: "15B",
-            user_height: 5.9, // Example height in feet
-            user_weight: 160, // Example weight in pounds
-            dietary_preference: "Vegan",
-            health_goal: "Lose weight",
-            additional_notes: "Prefers low-carb meals."
-        };
+    // Emit call_started event
+    imageEventEmitter.emit('webhook_update', {
+      type: 'call_started',
+      data: {
+        callId: llm_id,
+        from: from_number,
+        to: to_number
+      }
+    });
 
-        console.log('✅ Returning variables:', response);
-        res.json(response);
-    } catch (error) {
-        console.error('❌ Error handling inbound variables:', error);
-        res.status(500).json({ error: error.message });
-    }
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('❌ Error handling inbound variables:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Add this new SSE endpoint for webhook data
@@ -355,48 +349,54 @@ app.get('/api/webhook-stream', (req, res) => {
   });
 });
 
-// Update your webhook endpoint
+// At the top with other imports
+const processedImages = new Set();
+
 app.post("/webhook", async (req, res) => {
   try {
     const { event, call } = req.body;
-    console.log('\n📩 Webhook event received:', event);
-    
-    switch (event) {
-      case "call_started":
-        console.log("📞 Call started:", call.call_id);
-        // Emit call_started event
+    const imageId = call?.image_id || call?.call_id;
+    const timestamp = new Date().toISOString();
+
+    if (event === "call_analyzed") {
+      if (processedImages.has(imageId)) {
+        console.log("🔄 Skipping duplicate image:", imageId);
+        return res.status(200).json({ message: "Duplicate image skipped" });
+      }
+
+      processedImages.add(imageId);
+      setTimeout(() => processedImages.delete(imageId), 10000);
+
+      const { health_goal, additional_notes, user_age, user_height, user_name, user_gender, dietary_preference, user_weight } = call.call_analysis?.custom_analysis_data || {};
+
+      // Check if essential data is present
+      if (
+        health_goal &&
+        user_age &&
+        user_weight &&
+        user_height &&
+        user_name &&
+        user_gender
+      ) {
         imageEventEmitter.emit('webhook_update', {
-          type: 'call_started',
+          type: 'image_data',
           data: {
-            callId: call.call_id
+            health_goal,
+            additional_notes,
+            user_age,
+            user_height,
+            user_name,
+            user_gender,
+            dietary_preference,
+            user_weight,
+            timestamp
           }
         });
-        break;
-        
-      case "call_analyzed":
-        console.log("🔍 Call analyzed:", call.call_id);
-        if (call.call_analysis?.custom_analysis_data) {
-          // Emit user_data event with analysis
-          imageEventEmitter.emit('webhook_update', {
-            type: 'user_data',
-            data: {
-              name: call.call_analysis?.custom_analysis_data?.user_name || "User",
-              age: call.call_analysis?.custom_analysis_data?.user_age,
-              weight: call.call_analysis?.custom_analysis_data?.user_weight,
-              height: call.call_analysis?.custom_analysis_data?.user_height,
-              gender: call.call_analysis?.custom_analysis_data?.user_gender,
-              dietaryPreference: call.call_analysis?.custom_analysis_data?.dietary_preference,
-              healthGoal: call.call_analysis?.custom_analysis_data?.health_goal,
-              additionalNotes: call.call_analysis?.custom_analysis_data?.additional_notes
-            }
-          });
-        }
-        break;
-        
-      default:
-        console.log("❓ Unknown event:", event);
+      } else {
+        console.warn("⚠️ Incomplete data received, not emitting 'image_data'.");
+      }
     }
-    
+
     res.status(200).json({ success: true });
   } catch (error) {
     console.error("❌ Error processing webhook:", error);
@@ -406,6 +406,40 @@ app.post("/webhook", async (req, res) => {
 
 // Serve static files from the public directory
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+
+// Add at the top with other imports
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
+// Modify your image processing logic
+const processImage = debounce(async (imageData) => {
+  try {
+    // Your existing image processing code
+    const analysis = await analyzeImage(imageData);
+    imageEventEmitter.emit('webhook_update', {
+      type: 'image_data',
+      data: analysis
+    });
+  } catch (error) {
+    console.error("❌ Error processing image:", error);
+  }
+}, 1000); // 1 second debounce
+
+// Use the debounced function in your route handler
+app.post('/api/process-image', async (req, res) => {
+  const imageData = req.body;
+  processImage(imageData);
+  res.status(200).json({ message: "Processing image..." });
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

@@ -13,22 +13,31 @@ function CallInProgress() {
       try {
         const data = JSON.parse(event.data);
 
-        if (data.type === 'user_data') {
+        if (data.type === 'image_data') {
           console.log("👤 Received user data:", data.data);
-          // Map the data correctly
-          const userData = {
-            name: data.data.name,
-            age: data.data.age,
-            weight: data.data.weight || 0,
-            height: data.data.height,
-            gender: data.data.gender,
-            dietaryPreference: data.data.dietaryPreference || 'Not specified',
-            healthGoal: data.data.healthGoal,
-            additionalNotes: data.data.additionalNotes || ''
-          };
-          setUserData(userData);
-          // Navigate directly to FoodLogPage
-          navigate('/food-log');
+          if (
+            data.data.health_goal &&
+            data.data.user_age &&
+            data.data.user_weight &&
+            data.data.user_height &&
+            data.data.user_name &&
+            data.data.user_gender
+          ) {
+            const userData = {
+              name: data.data.user_name,
+              age: data.data.user_age,
+              weight: data.data.user_weight,
+              height: data.data.user_height,
+              gender: data.data.user_gender,
+              dietaryPreference: data.data.dietary_preference || 'Not specified',
+              healthGoal: data.data.health_goal,
+              additionalNotes: data.data.additional_notes || ''
+            };
+            setUserData(userData);
+            navigate('/food-log');
+          } else {
+            console.warn("⚠️ Incomplete user data received:", data.data);
+          }
         }
       } catch (error) {
         console.error("❌ Error processing webhook SSE:", error);
@@ -37,11 +46,7 @@ function CallInProgress() {
 
     eventSource.onerror = (error) => {
       console.error("❌ SSE Connection error:", error);
-      // Implement reconnection logic
-      setTimeout(() => {
-        eventSource.close();
-        new EventSource('http://localhost:3103/api/webhook-stream');
-      }, 1000);
+      eventSource.close();
     };
 
     return () => {
