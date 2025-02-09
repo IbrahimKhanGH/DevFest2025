@@ -9,6 +9,8 @@ import { dirname } from 'path';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { url } from 'inspector';
+import { EventEmitter } from 'events';
+import crypto from 'crypto';
 
 // Configure dotenv first
 dotenv.config();
@@ -29,22 +31,26 @@ if (!process.env.GROQ_API_KEY) {
 }
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Middleware
-app.use(cors({
-  origin: "http://localhost:5173", // Adjust as needed
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
-}));
+const imageEventEmitter = new EventEmitter();
+
+// Increase payload size limit for large images
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Middleware
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://www.messenger.com'],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
 // Handle Preflight Requests (CORS for OPTIONS)
 app.options("/api/analyze-image", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.sendStatus(204);
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.status(200).send();
 });
 
 app.options("/api/nutritional-analysis", (req, res) => {
@@ -56,32 +62,20 @@ app.options("/api/nutritional-analysis", (req, res) => {
 
 // Define the schema
 const schema = {
-  properties: {
-    macronutrients: {
-      type: "object",
-      properties: {
-        protein: { type: "number", title: "Protein (g)" },
-        fats: { type: "number", title: "Fats (g)" },
-        carbs: { type: "number", title: "Carbohydrates (g)" }
-      },
-      required: ["protein", "fats", "carbs"],
-      title: "Macronutrients"
-    },
-    micronutrients: {
-      type: "object",
-      properties: {
-        vitamins: { type: "array", items: { type: "string" }, title: "Vitamins" },
-        minerals: { type: "array", items: { type: "string" }, title: "Minerals" }
-      },
-      required: ["vitamins", "minerals"],
-      title: "Micronutrients"
-    },
-    is_nutrient_dense: { type: "boolean", title: "Is Nutrient Dense?" },
-    explanation: { type: "string", title: "Nutrient Density Explanation" }
+  primaryIngredients: "string",
+  portionSize: "string",
+  macronutrients: {
+    protein: "number",
+    carbs: "number",
+    fats: "number",
+    calories: "number"
   },
-  required: ["macronutrients", "micronutrients", "is_nutrient_dense", "explanation"],
-  title: "Nutritional Analysis",
-  type: "object"
+  micronutrients: {
+    vitamins: ["string"],
+    minerals: ["string"]
+  },
+  nutrientDensity: "string",
+  explanation: "string"
 };
 
 // Helper function to format call analysis
@@ -107,56 +101,148 @@ function formatRetellCallAnalysis(call) {
   };
 }
 
-// Simple endpoint that just echoes back the image URL
-app.post('/api/analyze-image', async (req, res) => {
-    try {
-        const { imageUrl, isBase64 } = req.body;
-        let processedUrl;
-        
-        if (!imageUrl) {
-            return res.status(400).json({ 
-                success: false,
-                error: "No image URL provided" 
-            });
-        }
+// SSE endpoint for image stream
+app.get('/api/image-stream', (req, res) => {
+  console.log("🌟 New SSE connection attempt");
+  
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*'
+  });
 
-        if (isBase64) {
-            // Convert base64 to file and save it
-            const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '');
-            const buffer = Buffer.from(base64Data, 'base64');
-            
-            // Create a unique filename
-            const filename = `retell_image_${Date.now()}.jpg`;
-            const uploadsDir = path.join(__dirname, 'public', 'uploads');
-            
-            // Create directory if it doesn't exist
-            await mkdir(uploadsDir, { recursive: true });
-            
-            const filepath = path.join(uploadsDir, filename);
-            
-            // Save the file
-            await writeFile(filepath, buffer);
-            
-            // Generate URL for the saved image
-            processedUrl = `http://localhost:${PORT}/uploads/${filename}`;
-            console.log('\n🖼️  New RetellAI image saved:');
-            console.log('📂 Location:', filepath);
-            console.log('🔗 Access URL:', processedUrl, '\n');
-        } else {
-            // Handle regular URLs
-            processedUrl = await shortenUrl(imageUrl);
-            console.log('\n🔗 RetellAI Shortened URL:', processedUrl, '\n');
-        }
+  console.log("📡 SSE Headers set");
 
-        res.json({
-            success: true,
-            message: "Image received",
-            shortUrl: processedUrl
-        });
-    } catch (error) {
-        console.error("❌ RetellAI Server Error:", error);
-        res.status(500).json({ success: false, error: error.message || "Error processing image" });
+  // Send initial connection confirmation
+  res.write(`data: ${JSON.stringify({ status: 'connected' })}\n\n`);
+  console.log("✅ Sent initial SSE connection message");
+
+  // Handler for new images
+  const newImageHandler = (imageData) => {
+    console.log("🎯 Received image data in SSE handler:", imageData);
+    res.write(`data: ${JSON.stringify(imageData)}\n\n`);
+    console.log("📤 Sent image data through SSE");
+  };
+
+  imageEventEmitter.on('newImage', newImageHandler);
+
+  req.on('close', () => {
+    console.log("❌ SSE Connection closed");
+    imageEventEmitter.off('newImage', newImageHandler);
+  });
+});
+
+// Add this helper function after your schema definition
+async function saveBase64Image(base64Data) {
+  try {
+    // Remove the data:image/jpeg;base64, prefix if it exists
+    const base64Image = base64Data.replace(/^data:image\/\w+;base64,/, '');
+    
+    // Create a unique filename
+    const filename = `${crypto.randomBytes(16).toString('hex')}.jpg`;
+    
+    // Ensure the uploads directory exists
+    const uploadDir = path.join(__dirname, 'public', 'uploads');
+    await mkdir(uploadDir, { recursive: true });
+    
+    // Save the file
+    const filepath = path.join(uploadDir, filename);
+    await writeFile(filepath, base64Image, 'base64');
+    
+    // Return the HTTP URL
+    return `http://localhost:${PORT}/uploads/${filename}`;
+  } catch (error) {
+    console.error("❌ Error saving image:", error);
+    throw error;
+  }
+}
+
+// Nutritional Analysis endpoint
+app.post("/api/nutritional-analysis", async (req, res) => {
+  try {
+    console.log("📥 Received request to /api/nutritional-analysis");
+    
+    let { imageUrl } = req.body;
+    
+    // If it's a base64 image, save it and get an HTTP URL
+    if (imageUrl && imageUrl.startsWith('data:image')) {
+      console.log("💾 Converting base64 to file...");
+      imageUrl = await saveBase64Image(imageUrl);
+      console.log("🔗 Created HTTP URL:", imageUrl);
     }
+
+    if (!imageUrl) {
+      console.error("❌ No image URL provided!");
+      return res.status(400).json({ success: false, error: "No image URL provided" });
+    }
+
+    console.log("🤖 Starting Groq AI analysis...");
+    const chatResponse = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content: `
+You are an advanced AI nutritionist with expertise in food and beverage analysis. 
+Analyze the image and provide your response in JSON format following this exact schema:
+{
+  "primaryIngredients": "string describing main items",
+  "portionSize": "string",
+  "macronutrients": {
+    "protein": number,
+    "carbs": number,
+    "fats": number,
+    "calories": number
+  },
+  "micronutrients": {
+    "vitamins": ["string array"],
+    "minerals": ["string array"]
+  },
+  "nutrientDensity": "string",
+  "explanation": "string"
+}
+
+For beverages, especially energy drinks:
+1. Identify the specific brand and type
+2. Note caffeine content, sugar/sweeteners, and other active ingredients
+3. Use standard serving sizes (Red Bull: 8.4oz)
+          `
+        },
+        {
+          role: "user",
+          content: `Analyze this image and respond in JSON format: ${imageUrl}
+
+Please identify if this is a food item or beverage, then provide detailed nutritional analysis in the specified JSON format.`
+        }
+      ],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      stream: false,
+      response_format: { type: "json_object" }
+    });
+      
+    console.log("🟢 Groq AI Response:", chatResponse.choices[0].message.content);
+
+    const parsedData = JSON.parse(chatResponse.choices[0].message.content);
+
+    console.log("✨ Analysis complete, emitting event");
+    imageEventEmitter.emit('newImage', {
+      imageUrl: imageUrl,
+      nutritionalAnalysis: parsedData,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log("🎉 Sending response to client");
+    res.json({
+      success: true,
+      message: "Image processed successfully",
+      nutritionalAnalysis: parsedData
+    });
+
+  } catch (error) {
+    console.error("💥 Error in nutritional analysis:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // Endpoint for inbound call dynamic variables
@@ -190,28 +276,6 @@ app.post('/api/inbound-variables', async (req, res) => {
         console.error('❌ Error handling inbound variables:', error);
         res.status(500).json({ error: error.message });
     }
-});
-
-// Add this near your other endpoints
-app.get('/webhook-stream', (req, res) => {
-    console.log("🔌 Client connected to SSE stream");
-    
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    const sendEvent = (data) => {
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
-
-    // Store the sendEvent function
-    req.app.locals.sendEvent = sendEvent;
-
-    // Clean up on client disconnect
-    req.on('close', () => {
-        console.log("🔌 Client disconnected from SSE stream");
-    });
 });
 
 // Existing webhook endpoint
@@ -263,73 +327,7 @@ app.post("/webhook", async (req, res) => {
 // Serve static files from the public directory
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
-app.post("/api/nutritional-analysis", async (req, res) => {
-  try {
-    const { imageUrl } = req.body;
-
-    console.log("🟢 Received image URL for analysis:", imageUrl);
-
-    if (!imageUrl) {
-      console.error("❌ No image URL provided!");
-      return res.status(400).json({ success: false, error: "No image URL provided" });
-    }
-
-    const chatResponse = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: `
-You are an advanced AI nutritionist with deep expertise in image recognition and dietary analysis. 
-You will receive an image URL of a food item. 
-Your task is:
-1. Identify the primary ingredients from the image (e.g., "steak and eggs", "burger", "salad").
-2. Estimate portion sizes (e.g., grams or cups).
-3. Provide detailed macronutrient analysis (protein, carbohydrates, fats) with approximate calorie counts.
-4. Provide relevant micronutrient estimates (vitamins, minerals).
-5. Assess the overall nutrient density (e.g., "low," "moderate," or "high").
-6. Follow any additional fields specified in the JSON schema exactly.
-7. Output your result strictly as a JSON object matching the provided schema. 
-   Do not include any text outside the JSON structure.
-
-Schema to follow: 
-\`\`\`
-${JSON.stringify(schema, null, 4)}
-\`\`\`
-          `
-        },
-        {
-          role: "user",
-          content: `
-Analyze the following food image for macronutrients, micronutrients, and nutrient density: 
-${imageUrl}
-
-Please first identify what food items you see in the image, then provide a detailed nutritional analysis specific to those items.
-          `
-        }
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.7, // Slightly increased for more varied responses
-      stream: false,
-      response_format: { type: "json_object" }
-    });
-      
-    console.log("🟢 Groq AI Response:", chatResponse.choices[0].message.content);
-
-    const parsedData = JSON.parse(chatResponse.choices[0].message.content);
-
-    res.json({
-      success: true,
-      message: "Image processed successfully",
-      nutritionalAnalysis: parsedData
-    });
-
-  } catch (error) {
-    console.error("❌ Groq AI Error:", error);
-    res.status(500).json({ success: false, error: error.message || "Error processing image" });
-  }
-});
-
 app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
   console.log("Ready to receive images, analyze them with RetellAI and Groq AI!");
 }); 

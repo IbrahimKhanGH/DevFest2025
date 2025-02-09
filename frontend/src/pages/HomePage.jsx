@@ -8,7 +8,7 @@ function HomePage() {
   
   useEffect(() => {
     // Set up SSE connection to listen for webhook events
-    const eventSource = new EventSource('http://localhost:3103/webhook-stream');
+    const eventSource = new EventSource('http://localhost:3103/webhook');
     
     eventSource.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -22,13 +22,14 @@ function HomePage() {
   }, [navigate, setUserData]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex flex-col items-center justify-center py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col items-center justify-center py-12 px-4">
       <div className="max-w-4xl text-center">
-        <h1 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mb-6 animate-fade-in">
-          Talk to Your AI Nutritionist
+        <div className="mb-8 text-6xl">🥗</div>
+        <h1 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-500 mb-6 animate-fade-in">
+          NutriSnap AI
         </h1>
-        <p className="text-xl text-gray-600 mb-12 animate-fade-in-delay">
-          Get personalized nutrition advice and meal plans tailored just for you
+        <p className="text-xl text-gray-300 mb-12 animate-fade-in-delay">
+          Snap. Analyze. Track Your Nutrition Journey.
         </p>
         
         <button 
@@ -50,29 +51,29 @@ function HomePage() {
             setUserData(mockCallData.customAnalysis);
             navigate('/food-log');
           }}
-          className="inline-flex items-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full hover:scale-105 transition-all shadow-lg hover:shadow-xl animate-bounce"
+          className="inline-flex items-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg hover:scale-105 transition-all shadow-lg hover:shadow-emerald-500/20 animate-pulse"
         >
           <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
           </svg>
-          Call to Get Started
+          Get Started
         </button>
 
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in-delay-2">
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in-delay-2">
+          <FeatureCard 
+            icon="📸"
+            title="Instant Analysis"
+            description="Take a photo of your meal and get instant nutritional insights"
+          />
+          <FeatureCard 
+            icon="📊"
+            title="Track Progress"
+            description="Monitor your macro and micronutrient intake effortlessly"
+          />
           <FeatureCard 
             icon="🎯"
-            title="Personalized Plans"
-            description="Get nutrition advice tailored to your goals"
-          />
-          <FeatureCard 
-            icon="🤖"
-            title="AI-Powered"
-            description="Advanced AI technology for accurate analysis"
-          />
-          <FeatureCard 
-            icon="📱"
-            title="Easy to Use"
-            description="Just call and get started in minutes"
+            title="Smart Goals"
+            description="AI-powered recommendations based on your health goals"
           />
         </div>
       </div>
@@ -82,10 +83,10 @@ function HomePage() {
 
 function FeatureCard({ icon, title, description }) {
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-      <div className="text-4xl mb-4">{icon}</div>
-      <h3 className="text-xl font-semibold text-gray-800 mb-2">{title}</h3>
-      <p className="text-gray-600">{description}</p>
+    <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 p-6 hover:bg-gray-800/80 transition-all group">
+      <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">{icon}</div>
+      <h3 className="text-xl font-semibold text-green-400 mb-2">{title}</h3>
+      <p className="text-gray-400">{description}</p>
     </div>
   );
 }
